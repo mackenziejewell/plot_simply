@@ -1,4 +1,5 @@
-# plot-quicker
+# plot-simply
+Functions for quicker use of common plotting tools, especially involving geographic plots
 
 ### To build matching environment:
 
