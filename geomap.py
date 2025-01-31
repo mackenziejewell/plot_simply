@@ -248,3 +248,137 @@ Latest recorded update:
                 bbox=dict(boxstyle = boxstyle, facecolor=facecolor, edgecolor = edgecolor), 
                 transform=ax.transAxes, fontsize=fontsize, 
                 c=textcolor, verticalalignment='top', zorder = zorder);
+
+
+
+
+
+def scalebar(ax, corner = (0.1, 0.1), stepsize = 50,  numsteps = 4, unit = 'km', 
+             unit_label = None,
+             colors=['k','w'], textsize=9, lw = 3, 
+             unitpad = 0.025, labelpad = 0.025):
+
+    """Add scalebar to to cartopy plot.
+    
+INPUT:
+- ax: cartopy figure axis
+- corner = (x,y) of scalebar's lower left corner, in axes coordinates [0,1] (default: (0.1,0.1))
+- stepsize: distance between scalebar ticks (default: 50)
+- numsteps: number of scalebar ticks (default: 4)
+- unit: unit of scalebar (default: 'km')
+- unit_label: unit label to display (if None, will use unit) (default: None)
+- colors: list of 2 alternating colors for scalebar ticks (default: ['k','w'])
+- lw: linewidth of scalebar (default: 3)
+- textsize: size of scalebar text (default: 9)
+- unitpad: padding between unit label and scalebar (default: 0.025)
+- labelpad: padding between scalebar ticks and labels (default: 0.025)
+
+Latest recorded update:
+01-30-2025
+    """
+
+    # convert step size to m
+    step = (stepsize * units(unit)).to('m').magnitude
+
+    # convert lower left corner of scalebar
+    # from figure display coordinates to projected coordinates
+    # follow: https://stackoverflow.com/questions/56662941/cartopy-convert-point-from-axes-coordinates-to-lat-lon-coordinates
+    xi, yi = corner
+    # convert from Axes coordinates to display coordinates
+    (xd, yd) = ax.transAxes.transform((xi, yi))
+    # convert from display coordinates to data coordinates
+    (x0, y0) = ax.transData.inverted().transform((xd, yd))
+
+    # top and bottom label locations
+
+    # number labels
+    # convert label pad to axes coordinates
+    # convert from Axes coordinates to display coordinates
+    (xd, yd) = ax.transAxes.transform((xi, yi+labelpad))
+    # convert from display coordinates to data coordinates
+    (xxx, labely) = ax.transData.inverted().transform((xd, yd))
+
+    # unit labels
+    unitx = x0 + ((numsteps/2-1)*step)
+    # convert label pad to axes coordinates
+    # convert from Axes coordinates to display coordinates
+    (xd, yd) = ax.transAxes.transform((xi, yi-unitpad))
+    # convert from display coordinates to data coordinates
+    (xxx, unity) = ax.transData.inverted().transform((xd, yd))
+
+    # print(step_m)
+    # figure_projection = ax.projection
+    
+    # plot scalebar
+    x1 = x0 - step - step/1000
+    if numsteps%2==0:
+        x2 = x0 + ((numsteps-1)*step) + step/1000  
+    else:
+        x2 = x0 + ((numsteps-1)*step) 
+    ax.plot([x1, x2], [y0, y0], lw=lw+1, c=colors[0], zorder=100)
+    
+    for ii in range(numsteps+1):
+        
+        x1 = x0 + (step*(ii-1))
+        x2 = x0 + step*ii
+        
+        if ii < numsteps:
+            ax.plot([x1, x2], [y0, y0], lw=lw, c=colors[ii%2], zorder=100)
+        
+        
+        # label ticks
+        dist = f'{step*ii/1000:.0f}'
+        ax.text(x1, labely, dist, va='bottom', ha = 'center', size=textsize, zorder=100)
+    
+    
+    if unit_label is not None:
+        LABEL = unit_label
+    else:
+        LABEL = unit
+    
+    ax.text(unitx, unity, 
+            LABEL, va='top', ha = 'center', size=textsize, zorder=100)
+    
+
+
+
+def northarrow(ax, loc = (0.1, 0.1), textsize=9,):
+
+    """Add north arrow to to cartopy plot.
+    
+INPUT:
+- ax: cartopy figure axis
+- loc = (x,y) of arrow in axes coordinates [0,1] (default: (0.1,0.1))
+- textsize: size of arrow label text (default: 9)
+
+Latest recorded update:
+01-30-2025
+    """
+
+
+    # convert desired arrow coordinates to projection
+    # from figure display coordinates to projected coordinates
+    # follow: https://stackoverflow.com/questions/56662941/cartopy-convert-point-from-axes-coordinates-to-lat-lon-coordinates
+    xi, yi = loc
+    # convert from Axes coordinates to display coordinates
+    (xd, yd) = ax.transAxes.transform((xi, yi))
+    # convert from display coordinates to data coordinates
+    (x0, y0) = ax.transData.inverted().transform((xd, yd))
+
+    # convert from data to cartesian coordinates
+    proj_cart = ccrs.PlateCarree()
+    (lon, lat) = proj_cart.transform_point(*(x0, y0), src_crs=ax.projection)
+
+    # arrow_lon = -153.5
+    # arrow_lat = 69.75
+    
+    ax.text(np.array([lon]), np.array([lat]), 'N', weight='bold', va = 'center', ha='center',
+            size = textsize,    
+             transform=ccrs.PlateCarree(), zorder=300)
+    
+    ax.quiver(np.array([lon]), np.array([lat+0.05]), 
+                np.array([0]), np.array([1]), scale=28,
+                width = 0.0005, 
+                headaxislength = 650, headlength = 1000, headwidth=1000,
+                transform=ccrs.PlateCarree(), zorder=300)
+    
