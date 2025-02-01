@@ -395,7 +395,7 @@ def map_alaska(map_projection = ccrs.NorthPolarStereo(central_longitude=-153),
 INPUT:
 - map_projection: cartopy projection to use (default: ccrs.NorthPolarStereo(central_longitude=-153))
 - location: some default map ranges to use. (currently correspond only to NPS proj) (default: 'fullshelf')
-    Options: ['fullshelf', 'westshelf1']
+    Options: ['fullshelf', 'west1', 'west2']
 - figsize: figure size (default: (8,4))
 - background_color: background color of map (default: 'lightgray')
 - add_land: if True, add land feature to map (default: True)
@@ -411,7 +411,7 @@ Latest recorded update:
 01-30-2025
     """
 
-    allowed_locs = ['fullshelf', 'westshelf1']
+    allowed_locs = ['fullshelf', 'west1', 'west2']
     assert location in allowed_locs, f"location should be one of {allowed_locs}, given: {location}"
 
     fig, ax = plt.subplots(subplot_kw=dict(projection=map_projection), 
@@ -426,9 +426,14 @@ Latest recorded update:
         ax.set_xlim(-310000,220000+400000)
         ax.set_ylim(-2310000,-1980000+8000)
 
-    elif str(location) == 'westshelf1':
+    elif str(location) == 'west1':
         expand = 8000
         ax.set_xlim(-200000-expand,220000+expand)
+        ax.set_ylim(-2270000-expand,-1980000+expand)
+
+    elif str(location) == 'west2':
+        expand = 8000
+        ax.set_xlim(-200000-expand,290000+expand)
         ax.set_ylim(-2270000-expand,-1980000+expand)
 
     if place_labels:
