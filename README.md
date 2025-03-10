@@ -1,6 +1,7 @@
 # plot_simply
 Functions for quicker use of common plotting tools, especially involving geographic plots
 
+
 ### To build matching environment:
 
 (1) Navigate to folder in terminal and run:

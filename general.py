@@ -38,8 +38,6 @@ Latest recorded update:
     
 
 
-
-
 def add_colorbar(fig, ax, colorbar_input, cb_placement = 'left', cb_orientation = 'auto', 
                  cb_width = 'auto',  cb_length_fraction = [0,1], cb_pad = 0, 
                  cb_ticks = 'auto', cb_ticklabels = 'auto', 
