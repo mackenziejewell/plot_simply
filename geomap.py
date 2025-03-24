@@ -247,18 +247,19 @@ Latest recorded update:
                 transform=ax.transAxes, fontsize=fontsize, 
                 c=textcolor, verticalalignment='top', zorder = zorder);
 
-def scalebar(ax, loc = (0.1, 0.1), stepsize = 50,  numsteps = 4, unit = 'km', 
+def scalebar(ax, loc = (0.1, 0.1), steps = [5,10,50], stepsize = 50,  numsteps = 4, unit = 'km', 
              label = None,
              colors=['k','w'], edgecolor = None, textsize=9, lw = 1, bar_width = 0.025,
-             labelpad = 0.015, ticklabelpad = 0.01, zorder=100):
+             labelpad = 0.015, ticklabelpad = 0.01, zorder=100, clip_on=True):
 
     """Add scalebar to to cartopy plot.
     
 INPUT:
 - ax: cartopy figure axis
 - loc = (x,y) of scalebar's lower left corner, in axes coordinates [0,1] (default: (0.1,0.1))
-- stepsize: distance between scalebar ticks (default: 50)
-- numsteps: number of scalebar ticks (default: 4)
+- steps: size of each step in scalebar (default: [5,10,50], otherwise None to use stepsize, numsteps)
+- stepsize: distance between scalebar ticks (default: 50, only used if steps is None)
+- numsteps: number of scalebar ticks (default: 4, only used if steps is None)
 - unit: unit of scalebar (default: 'km')
 - label: unit label to display (if None, will use unit) (default: None)
 - colors: list of 2 alternating colors for scalebar ticks (default: ['k','w'])
@@ -268,9 +269,10 @@ INPUT:
 - labelpad: padding between unit label and scalebar (default: 0.025)
 - ticklabelpad: padding between scalebar ticks and labels (default: 0.025)
 - zorder: drawing order of scalebar layer (default: 100)
+- clip_on: if True, scalebar will be clipped to axes (default: True)
 
 Latest recorded update:
-01-31-2025
+03-20-2025
     """
 
     def axes_to_proj_units(x, y):
@@ -281,8 +283,16 @@ Latest recorded update:
         return (x0, y0)
 
     # convert step size to m
-    step_with_units = stepsize * units(unit)
-    step = (step_with_units).to('m').magnitude
+    if steps is None:
+        steps = stepsize * np.arange(0,numsteps+1)
+        step_with_units = steps * units(unit)
+        step = (step_with_units).to('m').magnitude
+    else:
+        
+        if steps[0] != 0:
+            steps = np.append(np.array([0]),np.array(steps))
+        step_with_units = steps * units(unit)#np.cumsum(np.array(steps)) * units(unit)
+        step = (step_with_units).to('m').magnitude
 
     # convert lower left corner of scalebar
     # from figure display coordinates to projected coordinates
@@ -304,42 +314,52 @@ Latest recorded update:
     # figure_projection = ax.projection
     
     # rectangle size paramters
-    width = step  # Width of the rectangle
+    widths = step  # Width of the rectangle
     height = dy# step/6  # Height of the rectangle
     y = y0  # y-coordinate of the lower-left corner
+
 
     # determine color of scalebar edge
     linecolor = colors[0]
     if edgecolor is not None:
         linecolor = edgecolor
     
-    # Create the scalebar (loop over each segment)
-    for ii in range(numsteps+1):
 
-        # Define rectangle position 
-        x = x0 + (step*ii) # x-coordinate of the lower-left corner
+    x_tick_locs = x0 + step
+    x_tick_labels = step_with_units.magnitude
+    x_bar_leftlocs = x0 + step[:-1]
+    x_bar_widths = np.diff(step)
+
+
+    # create the scalebar labels
+    for ii in range(len(x_tick_locs)):
 
         # label ticks
-        dist_label = step_with_units.magnitude * ii
+        dist_label = x_tick_labels[ii]
         dist = f'{dist_label}'
-        ax.text(x, ticky, dist, va='bottom', ha = 'center', size=textsize, zorder=zorder)    
+        ax.text(x_tick_locs[ii], ticky, dist, va='bottom', ha = 'center', size=textsize, zorder=zorder, clip_on=clip_on)    
 
-        if ii < numsteps:
-            # draw the Rectangle patch
-            rect = patches.Rectangle((x, y), width, height, 
-                                     linewidth=lw, edgecolor=linecolor, facecolor=colors[ii%2], zorder=zorder)
-            ax.add_patch(rect)
+    # Create the scalebar (loop over each segment)
+    for ii in range(len(x_tick_locs)-1):
+
+        # Define rectangle position 
+        x = x_bar_leftlocs[ii] # x-coordinate of the lower-left corner
+
+        # draw the Rectangle patch
+        rect = patches.Rectangle((x, y), x_bar_widths[ii], height, 
+                                    linewidth=lw, edgecolor=linecolor, facecolor=colors[ii%2], zorder=zorder, clip_on=clip_on)
+        ax.add_patch(rect)
 
     # label units of scalebar
     # unit labels
-    labelx = x0 + ((numsteps/2)*step)
+    labelx = (x_tick_locs[-1] + x_tick_locs[0])/2
     (xxx, labely) = axes_to_proj_units(xi,yi-labelpad)
 
     LABEL = unit
     if label is not None:
         LABEL = label
     
-    ax.text(labelx, labely, LABEL, va='top', ha = 'center', size=textsize, zorder=zorder)
+    ax.text(labelx, labely, LABEL, va='top', ha = 'center', size=textsize, zorder=zorder, clip_on=clip_on)
     
 def northarrow(ax, loc = (0.1, 0.1), textsize=9,):
 
