@@ -4,7 +4,7 @@
 import matplotlib.colors
 import numpy as np, numpy.ma as ma
 import matplotlib.cm as cm
-# import cartopy, cartopy.crs as ccrs
+import cartopy, cartopy.crs as ccrs
 
 # FUNCTIONS:
 #---------------------------------------------------------------------
@@ -226,3 +226,46 @@ Latest recorded update:
 
     return cbar, cbar_ax
 
+def quick_hist(vals, bin_edges = []):
+
+    """Function for generating histogram from values.
+
+INPUT: 
+- vals: (N x 1) array of values
+- bin_edges: edges of histogram bins (default: [])
+
+OUTPUT:
+- ret: dictionary containing:
+    - counts: counts of values in each bin
+    - dens: density of values in each bin
+    - prob: probability of values in each bin
+    - edges: edges of histogram bins
+    - centers: centers of histogram bins
+    - w: width of histogram bins
+
+Latest recorded update:
+03-27-2025
+    """
+    bin_w = np.diff(bin_edges)[0]
+    bin_centers = bin_edges[:-1] + bin_w/2
+
+    # find counts, densities, and probabilities
+    count, bins = np.histogram(vals, bins=bin_edges)
+    density, bins = np.histogram(vals, bins=bin_edges, density=True)
+    probability = density * bin_w
+
+    ret = {}
+    ret['counts'] = count
+    ret['dens'] = density
+    ret['prob'] = probability
+    ret['edges'] = bin_edges
+    ret['centers'] = bin_centers
+    ret['w'] = bin_w
+    return ret
+
+
+        
+    
+    # determine type of colorbar input 
+    #=================================
+    
