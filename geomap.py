@@ -248,7 +248,7 @@ Latest recorded update:
                 c=textcolor, verticalalignment='top', zorder = zorder);
 
 def scalebar(ax, loc = (0.1, 0.1), steps = [5,10,50], stepsize = 50,  numsteps = 4, unit = 'km', 
-             label = None,
+             custom_tick_labels = None, tick_side = 'top', unit_label_side = 'bottom', unit_label = None,
              colors=['k','w'], edgecolor = None, textsize=9, lw = 1, bar_width = 0.025,
              labelpad = 0.015, ticklabelpad = 0.01, zorder=100, clip_on=True):
 
@@ -260,8 +260,11 @@ INPUT:
 - steps: size of each step in scalebar (default: [5,10,50], otherwise None to use stepsize, numsteps)
 - stepsize: distance between scalebar ticks (default: 50, only used if steps is None)
 - numsteps: number of scalebar ticks (default: 4, only used if steps is None)
+- custom_tick_labels: list of custom labels for each step (default: None, will use stepsize)
+- tick_side: which side of scalebar to place tick labels (default: 'top')
+- unit_label_side: which side of scalebar to place unit label (default: 'bottom')
 - unit: unit of scalebar (default: 'km')
-- label: unit label to display (if None, will use unit) (default: None)
+- unit_label: unit label to display (if None, will use unit) (default: None)
 - colors: list of 2 alternating colors for scalebar ticks (default: ['k','w'])
 - lw: linewidth of scalebar edge (default: 1)
 - bar_width: height of scalebar rectangle in axes coordinates [0,1] (default: 0.025)
@@ -272,7 +275,7 @@ INPUT:
 - clip_on: if True, scalebar will be clipped to axes (default: True)
 
 Latest recorded update:
-03-20-2025
+08-13-2025
     """
 
     def axes_to_proj_units(x, y):
@@ -307,8 +310,14 @@ Latest recorded update:
     # top and bottom label locations
     # convert to axes coordinates
     # number labels
-    (xxx, ticky) = axes_to_proj_units(xi,yi+ticklabelpad)
-    ticky += dy # move up from top of scalebar
+    if tick_side == 'top':
+        (xxx, ticky) = axes_to_proj_units(xi,yi+ticklabelpad)
+        ticky += dy # move up from top of scalebar
+        tick_side_pos = 'bottom'
+    else:
+        (xxx, ticky) = axes_to_proj_units(xi,yi)
+        ticky -= dy
+        tick_side_pos = 'top'
 
     # print(step_m)
     # figure_projection = ax.projection
@@ -337,7 +346,10 @@ Latest recorded update:
         # label ticks
         dist_label = x_tick_labels[ii]
         dist = f'{dist_label}'
-        ax.text(x_tick_locs[ii], ticky, dist, va='bottom', ha = 'center', size=textsize, zorder=zorder, clip_on=clip_on)    
+
+        if custom_tick_labels is not None:
+            dist = custom_tick_labels[ii]
+        ax.text(x_tick_locs[ii], ticky, dist, va=tick_side_pos, ha = 'center', size=textsize, zorder=zorder, clip_on=clip_on)    
 
     # Create the scalebar (loop over each segment)
     for ii in range(len(x_tick_locs)-1):
@@ -353,13 +365,20 @@ Latest recorded update:
     # label units of scalebar
     # unit labels
     labelx = (x_tick_locs[-1] + x_tick_locs[0])/2
-    (xxx, labely) = axes_to_proj_units(xi,yi-labelpad)
+
+    if unit_label_side == 'bottom':
+        (xxx, labely) = axes_to_proj_units(xi,yi-labelpad)
+        unit_label_side_pos = 'top'
+    else:
+        (xxx, labely) = axes_to_proj_units(xi,yi+labelpad)
+        labely+=dy
+        unit_label_side_pos = 'bottom'
 
     LABEL = unit
-    if label is not None:
-        LABEL = label
+    if unit_label is not None:
+        LABEL = unit_label
     
-    ax.text(labelx, labely, LABEL, va='top', ha = 'center', size=textsize, zorder=zorder, clip_on=clip_on)
+    ax.text(labelx, labely, LABEL, va=unit_label_side_pos, ha = 'center', size=textsize, zorder=zorder, clip_on=clip_on)
     
 def northarrow(ax, loc = (0.1, 0.1), textsize=9,):
 
