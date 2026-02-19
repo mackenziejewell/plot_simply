@@ -21,6 +21,8 @@ from datetime import datetime, timedelta
 from metpy.units import units
 from shapely import wkt
 
+import matplotlib.path as mpath
+from matplotlib.ticker import FixedLocator
 
 # FUNCTIONS:
 #---------------------------------------------------------------------
@@ -419,7 +421,231 @@ Latest recorded update:
                 width = 0.0005, 
                 headaxislength = 650, headlength = 1000, headwidth=1000,
                 transform=ccrs.PlateCarree(), zorder=300)
+
+
+def create_clip_path(proj, lon_range=(-165, -120), lat_range = (68, 78)): 
+    """
+    Build a projected clipping path from a lat/lon bounding box.
+
+    Parameters
+    ----------
+    proj : cartopy.crs.Projection
+        Target map projection.
+    lon_range : tuple, optional
+        (min_lon, max_lon) in degrees.
+    lat_range : tuple, optional
+        (min_lat, max_lat) in degrees.
+
+    Returns
+    -------
+    matplotlib.path.Path
+        Closed path in projection coordinates for clipping map plots.
+    """
     
+    # Bounding box in degrees 
+    lon_min, lon_max = lon_range[0], lon_range[1] 
+    lat_min, lat_max = lat_range[0], lat_range[1] 
+    
+    # Sample points along each edge 
+    npts = 100 
+    
+    # Sample border points: 
+    # Bottom edge: latitude fixed at lat_min, lon varies left to right 
+    bottom = [(lon, lat_min) for lon in np.linspace(lon_min, lon_max, npts)] 
+    # Right edge: longitude fixed at lon_max, lat varies bottom to top 
+    right = [(lon_max, lat) for lat in np.linspace(lat_min, lat_max, npts)] 
+    # Top edge: latitude fixed at lat_max, lon varies right to left 
+    top = [(lon, lat_max) for lon in np.linspace(lon_max, lon_min, npts)] 
+    # Left edge: longitude fixed at lon_min, lat varies top to bottom 
+    left = [(lon_min, lat) for lat in np.linspace(lat_max, lat_min, npts)] 
+    
+    # Combine in order to make a closed polygon 
+    all_coords = bottom + right + top + left 
+    # Transform each point to map projection coordinates 
+    projected_coords = [proj.transform_point(lon, lat, ccrs.PlateCarree()) for lon, lat in all_coords] 
+    # Create a closed path 
+    clip_path = mpath.Path(projected_coords) 
+    
+    return clip_path
+
+def clip_map(ax, proj, lon_range = (-165, -120), lat_range = (68, 78), lat_buffer = 0.075):
+
+    """
+    Clip a Cartopy map to a lat/lon bounding box and set its extent.
+
+    Parameters
+    ----------
+    ax : cartopy.mpl.geoaxes.GeoAxes
+        Target axes to clip.
+    proj : cartopy.crs.Projection
+        Projection used by the axes.
+    lon_range : tuple, optional
+        (min_lon, max_lon) in degrees.
+    lat_range : tuple, optional
+        (min_lat, max_lat) in degrees.
+    lat_buffer : float, optional
+        fraction of lat range to add to plot bottom
+    """
+    
+    # create path to clop plot
+    clip_path = create_clip_path(proj, lon_range=lon_range, lat_range = lat_range)
+
+    # aply path clip
+    ax.set_boundary(clip_path, transform=proj)
+
+    # add extra space by bottom of plot, which tends to get cropped
+    lat_buffer = abs(np.diff(lat_range)[0]) * lat_buffer
+    ax.set_extent([lon_range[0], lon_range[1], lat_range[0]-lat_buffer, lat_range[1]], crs=ccrs.PlateCarree())
+
+def make_clip_map(proj, figsize=(6,4), lon_range = (-165, -120), lat_range = (68, 78), lat_crop_buffer = 0.075,
+                  gridlons = None, gridlats = None,
+                  gridlabel_opts=None,  **gridline_kwargs):
+
+    fig, ax = plt.subplots(figsize=figsize, subplot_kw={'projection': proj})
+
+    clip_map(ax, proj, lon_range = lon_range, lat_range = lat_range, lat_buffer = lat_crop_buffer)
+    
+
+    # grid labels
+    #-------------
+    # Default label options
+    default_label_opts = {
+        "lat_side": "right",
+        "lon_side": "bottom",
+        "lat_buffer_frac": 0.005,
+        "lon_buffer_frac": 0.02,
+        "textsize": plt.rcParams['font.size'],
+        "textcolor": 'k'
+    }
+
+    # Merge user options
+    if gridlabel_opts is not None:
+        default_label_opts.update(gridlabel_opts)
+
+
+    # Add labels if label_lons or label_lats are provided
+    if gridlons is not None or gridlats is not None:
+        clipmap_grid(ax, **default_label_opts, label_lons=gridlons, label_lats=gridlats, lon_range=lon_range, lat_range=lat_range, **gridline_kwargs)
+
+
+    return fig, ax
+
+def clipmap_grid(ax, label_lons = None, label_lats = None, 
+                  lat_side = 'right', lat_buffer_frac = 0.01,
+                  lon_side = 'bottom', lon_buffer_frac = 0.02,
+                 lat_range = None,
+                 lon_range = None,
+                  textsize = plt.rcParams['font.size'],
+                  textcolor = 'k', 
+                  **gridline_kwargs):
+    
+    """
+    Draw gridlines and add custom latitude/longitude labels on a Cartopy map.
+
+    Parameters
+    ----------
+    ax : cartopy.mpl.geoaxes.GeoAxes
+        The axes to draw on.
+    label_lons : list of float, optional
+        Longitudes to label. Default is None (will auto-draw).
+    label_lats : list of float, optional
+        Latitudes to label. Default is None (will auto-draw).
+    lat_range : tuple
+        clipped map lat range
+    lon_range : tuple
+        clipped map lon range
+    lat_side : {'right', 'left'}, optional
+        Side of the map to place latitude labels. Default is 'right'.
+    lat_buffer_frac : float, optional
+        Fractional offset for latitude labels from the map edge. Default is 0.01.
+    lon_side : {'top', 'bottom'}, optional
+        Side of the map to place longitude labels. Default is 'bottom'.
+    lon_buffer_frac : float, optional
+        Fractional offset for longitude labels from the map edge. Default is 0.02.
+    textsize : float, optional
+        Font size of labels. Default is `plt.rcParams['font.size']`.
+    textcolor : str, optional
+        Color of label text. Default is 'k'.
+    **gridline_kwargs : dict
+        Additional keyword arguments passed to `ax.gridlines()`.
+
+    """
+
+    # get plot extent
+    if lat_range is None:
+        _, _, lat_min, lat_max = ax.get_extent(ccrs.PlateCarree())
+    else:
+        lat_min = np.min(lat_range)
+        lat_max = np.max(lat_range)
+
+    if lon_range is None:
+        lon_min, lon_max, _, _ = ax.get_extent(ccrs.PlateCarree())
+    else:
+        lon_min = np.min(lon_range)
+        lon_max = np.max(lon_range)
+        
+    lat_buffer = lat_buffer_frac * abs(lon_max-lon_min)
+    lon_buffer = lon_buffer_frac * abs(lat_max-lat_min)
+
+    lat_fmt = lambda lat: f"{abs(lat)}°{'N' if lat >= 0 else 'S'}"
+    lon_fmt = lambda lon: f"{abs(lon)}°{'E' if lon >= 0 else 'W'}"
+
+    # map central longitude
+    center_lon = ax.projection.proj4_params["lon_0"]
+
+    default_gl = dict(
+        linewidth=1,
+        color='k',
+        alpha=0.5,
+        linestyle='dotted',
+        zorder=10001
+    )
+    
+    # user kwargs override defaults
+    default_gl.update(gridline_kwargs)
+
+
+    # draw gridlines
+    #-----------------------------------------------------
+    gl = ax.gridlines(crs=ccrs.PlateCarree(), **default_gl)
+    if label_lons is not None:
+        gl.xlocator = FixedLocator(label_lons)
+    if label_lats is not None:
+        gl.ylocator = FixedLocator(label_lats)
+    gl.bottom_labels = False
+    gl.right_labels = False
+
+   
+    # specifications for latitude labels
+    if lat_side == 'right':
+        lat_label_loc = lon_max + lat_buffer
+        lat_ha = 'left'
+    elif lat_side == 'left':
+        lat_label_loc = lon_min - lat_buffer
+        lat_ha = 'right'
+    lat_rot = lat_label_loc-center_lon
+
+    if label_lats is not None:
+        for lat in label_lats:
+            ax.text(lat_label_loc, lat, lat_fmt(lat),
+                    transform=ccrs.PlateCarree(),
+                    ha=lat_ha, va='center', clip_on=False, rotation=lat_rot, size=textsize, c=textcolor)
+
+     # specifications for longitude labels
+    if lon_side == 'top':
+        lon_label_loc = lat_max + lon_buffer
+        lon_va = 'bottom'
+    elif lon_side == 'bottom':
+        lon_label_loc = lat_min - lon_buffer
+        lon_va = 'top'
+    
+    if label_lons is not None:
+        for lon in label_lons:
+            lon_rot = lon-center_lon
+            ax.text(lon, lon_label_loc, lon_fmt(lon),
+                    transform=ccrs.PlateCarree(),
+                    ha='center', va=lon_va, rotation=lon_rot, clip_on=False, size=textsize, c=textcolor)
+            
 def map_alaska(map_projection = ccrs.NorthPolarStereo(central_longitude=-153), 
                location = 'fullshelf', figsize = (8,4), background_color = 'lightgray', 
                add_land = True,
