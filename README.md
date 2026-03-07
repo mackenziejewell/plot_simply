@@ -15,3 +15,15 @@ python -m ipykernel install --user --name <NAME>
 
 (3) Optional, to update environment file after modifying packages:
 mamba env export --from-history | grep -v "prefix:" > environment.yml
+
+
+
+To install these plotting tools:
+git clone https://github.com/mackenziejewell/plot_simply.git
+cd plot_simply
+mamba env create -f environment.yml
+
+To import into other project:
+Mamba activate my_project_env
+cd path/to/plot_simply
+pip install -e .
