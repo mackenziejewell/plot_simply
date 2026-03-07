@@ -2,11 +2,13 @@ name: plot_simply
 channels:
   - conda-forge
 dependencies:
-  - python
-  - numpy
-  - xarray
-  - matplotlib
   - cartopy
   - cmocean
-  - metpy
+  - ipykernel
+  - matplotlib
+  - conda-forge::metpy
+  - numpy
+  - python
   - shapely
+  - xarray
+

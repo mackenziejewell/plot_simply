@@ -1,0 +1,10 @@
+LICENSE
+README.md
+pyproject.toml
+plot_simply/__init__.py
+plot_simply/general.py
+plot_simply/geomap.py
+plot_simply.egg-info/PKG-INFO
+plot_simply.egg-info/SOURCES.txt
+plot_simply.egg-info/dependency_links.txt
+plot_simply.egg-info/top_level.txt

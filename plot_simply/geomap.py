@@ -18,7 +18,6 @@ import matplotlib.patches as patches
 import cmocean
 
 from datetime import datetime, timedelta
-from metpy.units import units
 from shapely import wkt
 
 import matplotlib.path as mpath
@@ -287,17 +286,29 @@ Latest recorded update:
         (x0, y0) = ax.transData.inverted().transform((xd, yd))
         return (x0, y0)
 
-    # convert step size to m
+    # convert step size to meters
+    unit_to_m = {
+        "m": 1.0,
+        "km": 1000.0,
+        "cm": 0.01,
+        "mm": 0.001,
+        "mi": 1609.344,
+        "ft": 0.3048,
+    }
+    factor = unit_to_m.get(unit, None)
+    if factor is None:
+        raise ValueError(f"Unit '{unit}' not supported. Add it to unit_to_m.")
+
     if steps is None:
-        steps = stepsize * np.arange(0,numsteps+1)
-        step_with_units = steps * units(unit)
-        step = (step_with_units).to('m').magnitude
+        steps = stepsize * np.arange(0, numsteps + 1)
+        step = steps * factor
     else:
-        
+        steps = np.array(steps)
         if steps[0] != 0:
-            steps = np.append(np.array([0]),np.array(steps))
-        step_with_units = steps * units(unit)#np.cumsum(np.array(steps)) * units(unit)
-        step = (step_with_units).to('m').magnitude
+            steps = np.insert(steps, 0, 0)
+        step = steps * factor
+
+    step_with_units = step
 
     # convert lower left corner of scalebar
     # from figure display coordinates to projected coordinates
@@ -337,7 +348,7 @@ Latest recorded update:
     
 
     x_tick_locs = x0 + step
-    x_tick_labels = step_with_units.magnitude
+    x_tick_labels = steps
     x_bar_leftlocs = x0 + step[:-1]
     x_bar_widths = np.diff(step)
 

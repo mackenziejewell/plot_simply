@@ -1,3 +1,13 @@
+Metadata-Version: 2.4
+Name: plot_simply
+Version: 0.1.0
+Summary: Simple geographic plotting utilities
+Author: Your Name
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
 # plot_simply
 Functions for quicker use of common plotting tools, especially involving geographic plots
 
