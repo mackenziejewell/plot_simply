@@ -393,45 +393,163 @@ Latest recorded update:
     
     ax.text(labelx, labely, LABEL, va=unit_label_side_pos, ha = 'center', size=textsize, zorder=zorder, clip_on=clip_on)
     
-def northarrow(ax, loc = (0.1, 0.1), textsize=9,):
+# def northarrow(ax, loc = (0.1, 0.1), textsize=9,):
 
-    """Add north arrow to to cartopy plot.
+#     """Add north arrow to to cartopy plot.
     
-INPUT:
-- ax: cartopy figure axis
-- loc = (x,y) of arrow in axes coordinates [0,1] (default: (0.1,0.1))
-- textsize: size of arrow label text (default: 9)
+# INPUT:
+# - ax: cartopy figure axis
+# - loc = (x,y) of arrow in axes coordinates [0,1] (default: (0.1,0.1))
+# - textsize: size of arrow label text (default: 9)
 
-Latest recorded update:
-01-30-2025
+# Latest recorded update:
+# 01-30-2025
+#     """
+
+
+#     # convert desired arrow coordinates to projection
+#     # from figure display coordinates to projected coordinates
+#     # follow: https://stackoverflow.com/questions/56662941/cartopy-convert-point-from-axes-coordinates-to-lat-lon-coordinates
+#     xi, yi = loc
+#     # convert from Axes coordinates to display coordinates
+#     (xd, yd) = ax.transAxes.transform((xi, yi))
+#     # convert from display coordinates to data coordinates
+#     (x0, y0) = ax.transData.inverted().transform((xd, yd))
+
+#     # convert from data to cartesian coordinates
+#     proj_cart = ccrs.PlateCarree()
+#     (lon, lat) = proj_cart.transform_point(*(x0, y0), src_crs=ax.projection)
+
+#     # arrow_lon = -153.5
+#     # arrow_lat = 69.75
+    
+#     ax.text(np.array([lon]), np.array([lat]), 'N', weight='bold', va = 'center', ha='center',
+#             size = textsize,    
+#              transform=ccrs.PlateCarree(), zorder=300)
+    
+#     ax.quiver(np.array([lon]), np.array([lat+0.05]), 
+#                 np.array([0]), np.array([1]), scale=28,
+#                 width = 0.0005, 
+#                 headaxislength = 650, headlength = 1000, headwidth=1000,
+#                 transform=ccrs.PlateCarree(), zorder=300)
+
+
+def northarrow(
+    ax,
+    loc=(0.1, 0.1),
+    size=0.08,
+    aspect_ratio = 0.25,
+    textsize=10,
+    color='k', clip_on = False
+):
+    """
+    Add a properly oriented cartographic north arrow.
+
+    Parameters
+    ----------
+    ax : cartopy GeoAxes
+    loc : tuple
+        Arrow center (x, y) in axes coordinates (0-1)
+    size : float
+        Arrow height in axes coordinates
+    aspect_ratio : float
+        Ratio of arrow width to height
+    textsize : int
+        font size for N label
+
+    Latest recorded update:
+    05-14-2026
     """
 
-
-    # convert desired arrow coordinates to projection
-    # from figure display coordinates to projected coordinates
-    # follow: https://stackoverflow.com/questions/56662941/cartopy-convert-point-from-axes-coordinates-to-lat-lon-coordinates
+    # Determine geographic location of arrow anchor
+    # ---------------------------------------------------------
     xi, yi = loc
-    # convert from Axes coordinates to display coordinates
-    (xd, yd) = ax.transAxes.transform((xi, yi))
-    # convert from display coordinates to data coordinates
-    (x0, y0) = ax.transData.inverted().transform((xd, yd))
+    xd, yd = ax.transAxes.transform((xi, yi))                  # axes -> display coords
+    xdata, ydata = ax.transData.inverted().transform((xd, yd)) # display -> data coords
+    lon, lat = ccrs.PlateCarree().transform_point(             # projected coords -> lon/lat
+        xdata, ydata,
+        src_crs=ax.projection
+    )
 
-    # convert from data to cartesian coordinates
-    proj_cart = ccrs.PlateCarree()
-    (lon, lat) = proj_cart.transform_point(*(x0, y0), src_crs=ax.projection)
+    # Compute North direction in projection space
+    # ---------------------------------------------------------
+    # small latitude step northward
+    extent = ax.get_extent(crs=ccrs.PlateCarree())
+    lat_span = abs(extent[3] - extent[2])
+    dlat = lat_span * 0.01
+    dlat = max(dlat, 1e-6)
+    x1, y1 = ax.projection.transform_point(
+        lon, lat,
+        src_crs=ccrs.PlateCarree()
+    )
+    x2, y2 = ax.projection.transform_point(
+        lon, lat + dlat,
+        src_crs=ccrs.PlateCarree()
+    )
+    angle = np.degrees(np.arctan2(y2 - y1, x2 - x1)) - 90
 
-    # arrow_lon = -153.5
-    # arrow_lat = 69.75
+    # ---------------------------------------------------------
+    # 3. Define classic north-arrow polygon
+    #    in LOCAL axes coordinates
+    # ---------------------------------------------------------
+    # define arrow in local axes coordinates
+    verts = np.array([
+        [0.0,  1.0],
+        [aspect_ratio, -aspect_ratio/2],
+        [0.0,  0.05],
+        [-aspect_ratio, -aspect_ratio/2],
+    ])
+    verts *= size
+
+    # rotate arroe
+    theta = np.radians(angle)
+    R = np.array([
+        [np.cos(theta), -np.sin(theta)],
+        [np.sin(theta),  np.cos(theta)]
+    ])
+    verts = verts @ R.T
     
-    ax.text(np.array([lon]), np.array([lat]), 'N', weight='bold', va = 'center', ha='center',
-            size = textsize,    
-             transform=ccrs.PlateCarree(), zorder=300)
+    # translate into axes position
+    verts[:,0] += xi
+    verts[:,1] += yi
     
-    ax.quiver(np.array([lon]), np.array([lat+0.05]), 
-                np.array([0]), np.array([1]), scale=28,
-                width = 0.0005, 
-                headaxislength = 650, headlength = 1000, headwidth=1000,
-                transform=ccrs.PlateCarree(), zorder=300)
+    poly = Polygon(
+        verts,
+        closed=True,
+        facecolor=color,
+        edgecolor=color,
+        transform=ax.transAxes,
+        zorder=1e6, clip_on = clip_on
+    )
+
+    ax.add_patch(poly)
+
+
+    # N text label
+    #---------------------------------------------------------
+    # find north arrow tip
+    tipx, tipy = verts[0]
+    
+    # unit vector along arrow direction
+    ux = -np.sin(theta)
+    uy = np.cos(theta)
+    
+    # offset beyond arrow tip
+    tx = tipx + ux * (size * 0.2)
+    ty = tipy + uy * (size * 0.2)
+
+    ax.text(tx, ty,
+        'N',
+        transform=ax.transAxes,
+        ha='center',
+        va='bottom',
+        fontsize=textsize,
+        rotation=angle,
+    rotation_mode='anchor',
+        fontweight='bold',
+        color=color,
+        zorder=1e6, clip_on = clip_on
+    )
 
 
 def create_clip_path(proj, lon_range=(-165, -120), lat_range = (68, 78)): 
